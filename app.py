@@ -17,83 +17,169 @@ st.set_page_config(
 # ─── Custom CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* ── Base ─────────────────────────────────────────────────────────── */
-    [data-testid="stAppViewContainer"] { background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%); }
-    [data-testid="stSidebar"]          { background: rgba(255,255,255,0.97); }
+    /* ══════════════════════════════════════════════════════════════════
+       CSS VARIABLES — Light Mode (default)
+    ══════════════════════════════════════════════════════════════════ */
+    :root {
+        --bg-main:        linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+        --bg-sidebar:     rgba(255, 255, 255, 0.97);
+        --bg-card:        #ffffff;
+        --bg-table-even:  #f9fafb;
+        --bg-table-hover: #eef2ff;
+        --bg-input:       #ffffff;
 
-    /* Force dark text */
-    html, body, [class*="css"], p, span, div, label { color: #1f2937 !important; }
-    h1, h2, h3, h4, h5 { color: #111827 !important; }
-    .stMarkdown p, .stMarkdown li { color: #1f2937 !important; }
-    a { color: #4f46e5 !important; }
+        --text-primary:   #1f2937;
+        --text-heading:   #111827;
+        --text-muted:     #6b7280;
+        --text-label:     #374151;
 
-    /* ── Metric cards ─────────────────────────────────────────────────── */
+        --border:         #e5e7eb;
+        --accent:         #4f46e5;
+        --accent-light:   #818cf8;
+        --shadow-card:    0 2px 14px rgba(79,70,229,.12);
+        --shadow-table:   0 1px 8px rgba(0,0,0,.07);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       CSS VARIABLES — Dark Mode
+    ══════════════════════════════════════════════════════════════════ */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-main:        linear-gradient(135deg, #0f1117 0%, #1a1b2e 100%);
+            --bg-sidebar:     rgba(22, 23, 36, 0.98);
+            --bg-card:        #1e2030;
+            --bg-table-even:  #1a1c2e;
+            --bg-table-hover: #2d2f4d;
+            --bg-input:       #1e2030;
+
+            --text-primary:   #e5e7eb;
+            --text-heading:   #f9fafb;
+            --text-muted:     #9ca3af;
+            --text-label:     #d1d5db;
+
+            --border:         #374151;
+            --accent:         #818cf8;
+            --accent-light:   #4f46e5;
+            --shadow-card:    0 2px 14px rgba(0,0,0,.4);
+            --shadow-table:   0 1px 8px rgba(0,0,0,.3);
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       BASE — Apply variables to Streamlit elements
+    ══════════════════════════════════════════════════════════════════ */
+    [data-testid="stAppViewContainer"] { background: var(--bg-main) !important; }
+    [data-testid="stSidebar"]          { background: var(--bg-sidebar) !important; }
+    [data-testid="stHeader"]           { background: transparent !important; }
+
+    /* Text */
+    html, body, [class*="css"], p, span, div, label { color: var(--text-primary) !important; }
+    h1, h2, h3, h4, h5 { color: var(--text-heading) !important; }
+    .stMarkdown p, .stMarkdown li { color: var(--text-primary) !important; }
+    small, caption, .stCaption { color: var(--text-muted) !important; }
+    a { color: var(--accent) !important; }
+
+    /* Inputs */
+    input, select, textarea {
+        background: var(--bg-input) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border) !important;
+        min-height: 42px;
+        font-size: 1rem !important;
+    }
+
+    /* ── Metric cards ─────────────────────────────────────────────── */
     .metric-card {
-        background: white;
-        border-radius: 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
         padding: 1rem 1.2rem;
-        box-shadow: 0 2px 12px rgba(79,70,229,.10);
+        box-shadow: var(--shadow-card);
         text-align: center;
         margin-bottom: 0.5rem;
+        transition: transform .15s ease, box-shadow .15s ease;
     }
-    .metric-card h2 { font-size: 2rem; font-weight: 700; color: #4f46e5 !important; margin: 0; }
-    .metric-card p  { color: #6b7280 !important; margin: 0; font-size: .8rem;
-                      letter-spacing: .05em; text-transform: uppercase; }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+    .metric-card h2 { font-size: 2rem; font-weight: 700; color: var(--accent) !important; margin: 0; }
+    .metric-card p  { color: var(--text-muted) !important; margin: 0; font-size: .78rem;
+                      letter-spacing: .06em; text-transform: uppercase; }
 
-    /* ── Section titles ───────────────────────────────────────────────── */
-    .section-title { font-size: 1.05rem; font-weight: 600; color: #1f2937 !important; margin-bottom: .4rem; }
+    /* ── Section titles ───────────────────────────────────────────── */
+    .section-title { font-size: 1.05rem; font-weight: 600;
+                     color: var(--text-heading) !important; margin-bottom: .4rem; }
 
-    /* ── HTML table: scrollable wrapper on mobile ─────────────────────── */
-    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch;
-                     border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 700px; white-space: nowrap; }
-    th { background-color: #4f46e5 !important; color: white !important; padding: 9px 10px; text-align: left; position: sticky; top: 0; }
-    td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; color: #1f2937 !important; }
-    tr:nth-child(even) td { background-color: #f9fafb; }
-    tr:hover td { background-color: #eef2ff; }
+    /* ── Table ────────────────────────────────────────────────────── */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 10px;
+        box-shadow: var(--shadow-table);
+        border: 1px solid var(--border);
+    }
+    table  { width: 100%; border-collapse: collapse; font-size: 0.8rem;
+             min-width: 700px; white-space: nowrap; }
+    th     { background: var(--accent) !important; color: #fff !important;
+             padding: 9px 12px; text-align: left; position: sticky; top: 0; }
+    td     { padding: 6px 12px; border-bottom: 1px solid var(--border);
+             color: var(--text-primary) !important;
+             background: var(--bg-card); }
+    tr:nth-child(even) td { background: var(--bg-table-even) !important; }
+    tr:hover td            { background: var(--bg-table-hover) !important; }
 
-    /* ── Sidebar ──────────────────────────────────────────────────────── */
-    [data-testid="stSidebar"] label  { color: #374151 !important; font-weight: 500; }
+    /* ── Sidebar ──────────────────────────────────────────────────── */
+    [data-testid="stSidebar"] label { color: var(--text-label) !important; font-weight: 500; }
     [data-testid="stSidebar"] small,
-    [data-testid="stSidebar"] .stCaption p { color: #6b7280 !important; }
+    [data-testid="stSidebar"] .stCaption p { color: var(--text-muted) !important; }
+    [data-testid="stSidebarContent"] { padding-top: 1rem; }
 
-    /* Select/input touch targets */
-    select, input[type="text"] { min-height: 42px; font-size: 1rem !important; }
+    /* ── Buttons ──────────────────────────────────────────────────── */
+    .stDownloadButton button, .stButton button {
+        background: var(--accent) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: opacity .15s;
+    }
+    .stDownloadButton button:hover, .stButton button:hover { opacity: .85; }
 
-    /* ── Mobile ≤ 768px ───────────────────────────────────────────────── */
+    /* ══════════════════════════════════════════════════════════════════
+       RESPONSIVE — Tablet ≤ 1024px
+    ══════════════════════════════════════════════════════════════════ */
+    @media (max-width: 1024px) {
+        .metric-card h2 { font-size: 1.75rem !important; }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       RESPONSIVE — Mobile ≤ 768px
+    ══════════════════════════════════════════════════════════════════ */
     @media (max-width: 768px) {
-        /* Tighter app padding */
         [data-testid="stAppViewBlockContainer"] { padding: 0.5rem 0.75rem !important; }
 
-        /* Metric cards: shrink numbers */
         .metric-card { padding: 0.75rem 0.8rem; }
         .metric-card h2 { font-size: 1.5rem !important; }
         .metric-card p  { font-size: 0.7rem !important; }
 
-        /* Charts: limit height so they don't overflow */
-        [data-testid="stPlotlyChart"] { max-height: 280px; overflow: hidden; }
+        [data-testid="stPlotlyChart"] { max-height: 260px; overflow: hidden; }
 
-        /* Table always scrollable */
-        .table-wrapper { margin: 0 -0.25rem; }
-        table { font-size: 0.75rem; }
+        table { font-size: 0.74rem; }
         th, td { padding: 5px 8px; }
 
-        /* Section titles smaller */
-        .section-title { font-size: 0.95rem; }
+        .section-title { font-size: 0.92rem; }
+        h1 { font-size: 1.35rem !important; }
+        h2 { font-size: 1.05rem !important; }
+        h3 { font-size: 0.98rem !important; }
 
-        /* Headings */
-        h1 { font-size: 1.4rem !important; }
-        h2 { font-size: 1.1rem !important; }
-        h3 { font-size: 1rem !important; }
-
-        /* Detail section stack */
         [data-testid="column"] { min-width: 100% !important; }
     }
 
-    /* ── Very small ≤ 480px ───────────────────────────────────────────── */
+    /* ══════════════════════════════════════════════════════════════════
+       RESPONSIVE — Small phones ≤ 480px
+    ══════════════════════════════════════════════════════════════════ */
     @media (max-width: 480px) {
-        .metric-card h2 { font-size: 1.25rem !important; }
-        h1 { font-size: 1.2rem !important; }
+        .metric-card h2 { font-size: 1.2rem !important; }
+        .metric-card p  { font-size: 0.65rem !important; }
+        h1 { font-size: 1.15rem !important; }
     }
 </style>
 """, unsafe_allow_html=True)
