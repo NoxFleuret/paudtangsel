@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
+from io import BytesIO
 
 # ─── Page Config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -16,13 +17,84 @@ st.set_page_config(
 # ─── Custom CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
+    /* ── Base ─────────────────────────────────────────────────────────── */
     [data-testid="stAppViewContainer"] { background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%); }
-    [data-testid="stSidebar"] { background: rgba(255,255,255,0.9); }
-    .metric-card { background: white; border-radius: 12px; padding: 1.2rem 1.5rem; box-shadow: 0 2px 12px rgba(79,70,229,.10); text-align: center; }
-    .metric-card h2 { font-size: 2.4rem; font-weight: 700; color: #4f46e5; margin: 0; }
-    .metric-card p  { color: #6b7280; margin: 0; font-size: .9rem; letter-spacing: .05em; text-transform: uppercase; }
-    .section-title  { font-size: 1.15rem; font-weight: 600; color: #1f2937; margin-bottom: .4rem; }
-    a { color: #4f46e5; }
+    [data-testid="stSidebar"]          { background: rgba(255,255,255,0.97); }
+
+    /* Force dark text */
+    html, body, [class*="css"], p, span, div, label { color: #1f2937 !important; }
+    h1, h2, h3, h4, h5 { color: #111827 !important; }
+    .stMarkdown p, .stMarkdown li { color: #1f2937 !important; }
+    a { color: #4f46e5 !important; }
+
+    /* ── Metric cards ─────────────────────────────────────────────────── */
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 2px 12px rgba(79,70,229,.10);
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+    .metric-card h2 { font-size: 2rem; font-weight: 700; color: #4f46e5 !important; margin: 0; }
+    .metric-card p  { color: #6b7280 !important; margin: 0; font-size: .8rem;
+                      letter-spacing: .05em; text-transform: uppercase; }
+
+    /* ── Section titles ───────────────────────────────────────────────── */
+    .section-title { font-size: 1.05rem; font-weight: 600; color: #1f2937 !important; margin-bottom: .4rem; }
+
+    /* ── HTML table: scrollable wrapper on mobile ─────────────────────── */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch;
+                     border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 700px; white-space: nowrap; }
+    th { background-color: #4f46e5 !important; color: white !important; padding: 9px 10px; text-align: left; position: sticky; top: 0; }
+    td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; color: #1f2937 !important; }
+    tr:nth-child(even) td { background-color: #f9fafb; }
+    tr:hover td { background-color: #eef2ff; }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────── */
+    [data-testid="stSidebar"] label  { color: #374151 !important; font-weight: 500; }
+    [data-testid="stSidebar"] small,
+    [data-testid="stSidebar"] .stCaption p { color: #6b7280 !important; }
+
+    /* Select/input touch targets */
+    select, input[type="text"] { min-height: 42px; font-size: 1rem !important; }
+
+    /* ── Mobile ≤ 768px ───────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+        /* Tighter app padding */
+        [data-testid="stAppViewBlockContainer"] { padding: 0.5rem 0.75rem !important; }
+
+        /* Metric cards: shrink numbers */
+        .metric-card { padding: 0.75rem 0.8rem; }
+        .metric-card h2 { font-size: 1.5rem !important; }
+        .metric-card p  { font-size: 0.7rem !important; }
+
+        /* Charts: limit height so they don't overflow */
+        [data-testid="stPlotlyChart"] { max-height: 280px; overflow: hidden; }
+
+        /* Table always scrollable */
+        .table-wrapper { margin: 0 -0.25rem; }
+        table { font-size: 0.75rem; }
+        th, td { padding: 5px 8px; }
+
+        /* Section titles smaller */
+        .section-title { font-size: 0.95rem; }
+
+        /* Headings */
+        h1 { font-size: 1.4rem !important; }
+        h2 { font-size: 1.1rem !important; }
+        h3 { font-size: 1rem !important; }
+
+        /* Detail section stack */
+        [data-testid="column"] { min-width: 100% !important; }
+    }
+
+    /* ── Very small ≤ 480px ───────────────────────────────────────────── */
+    @media (max-width: 480px) {
+        .metric-card h2 { font-size: 1.25rem !important; }
+        h1 { font-size: 1.2rem !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -59,6 +131,62 @@ def load_data():
     return pd.DataFrame(rows)
 
 
+@st.cache_data
+def load_excel_data():
+    """Build a comprehensive DataFrame with ALL fields including profil_api details."""
+    data_path = Path(__file__).parent / "data.json"
+    with open(data_path, encoding="utf-8") as f:
+        raw = json.load(f)
+
+    rows = []
+    for item in raw:
+        det = item.get("details") or {}
+        api = det.get("profil_api") or {}
+        rows.append({
+            "NPSN":                  item.get("npsn", ""),
+            "Nama Sekolah":          item.get("nama_sekolah", ""),
+            "Kecamatan":             item.get("kecamatan", ""),
+            "Kelurahan":             item.get("kelurahan", ""),
+            "Alamat":                item.get("jalan") or det.get("Alamat", ""),
+            "Status":                item.get("status", ""),
+            "Bentuk Pendidikan":     det.get("Bentuk Pendidikan", "-"),
+            "Akreditasi":            det.get("Akreditasi", "-"),
+            "Luas Tanah":            det.get("Luas Tanah", "-"),
+            "Naungan":               det.get("Naungan", "-"),
+            "No SK Pendirian":       det.get("No. SK. Pendirian", "-"),
+            "Tanggal SK Pendirian":  det.get("Tanggal SK. Pendirian", "-"),
+            "Kementerian Pembina":   det.get("Kementerian Pembina", "-"),
+            "Telepon":               det.get("Telepon") or api.get("Telepon API") or "-",
+            "Email":                 det.get("Email") or api.get("Email API") or "-",
+            "Website":               det.get("Website", "-"),
+            "Profil URL":            det.get("Profil Sekolah URL", ""),
+            "Kepala Sekolah":        api.get("Kepala Sekolah", "-"),
+            "Operator Satuan":       api.get("Operator", "-"),
+            "Guru Laki-laki":        api.get("Guru Laki-laki", 0),
+            "Guru Perempuan":        api.get("Guru Perempuan", 0),
+            "Total Guru":            (api.get("Guru Laki-laki") or 0) + (api.get("Guru Perempuan") or 0),
+            "Siswa Laki-laki":       api.get("Siswa Laki-laki", "-"),
+            "Siswa Perempuan":       api.get("Siswa Perempuan", "-"),
+            "Ruang Kelas":           api.get("Ruang Kelas", 0),
+            "Ruang Perpustakaan":    api.get("Ruang Perpustakaan", 0),
+            "Lintang":               det.get("Lintang", ""),
+            "Bujur":                 det.get("Bujur", ""),
+        })
+    return pd.DataFrame(rows)
+
+
+def to_excel_bytes(df: pd.DataFrame) -> bytes:
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Data PAUD")
+        ws = writer.sheets["Data PAUD"]
+        # Auto-size columns
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
+    return buf.getvalue()
+
+
 df_all = load_data()
 
 # ─── Sidebar Filters ────────────────────────────────────────────────────────────
@@ -84,6 +212,39 @@ with st.sidebar:
     sel_bentuk = st.selectbox("Bentuk Pendidikan", bentuk_opts)
 
     search = st.text_input("🔍 Cari nama / NPSN")
+    st.divider()
+
+    # ── Export Section ──────────────────────────────────────────────────────────
+    st.markdown("### 📥 Export Data")
+    export_scope = st.radio("Ekspor:", ["Data yang difilter", "Semua data (917 sekolah)"], horizontal=True)
+
+    # Pre-generate Excel (cached as long as filter hasn't changed)
+    if export_scope == "Semua data (917 sekolah)":
+        df_export = load_excel_data()
+        fname = "PAUD_TangerangSelatan_Lengkap.xlsx"
+    else:
+        df_export = load_excel_data()
+        if sel_kec    != "Semua": df_export = df_export[df_export["Kecamatan"]        == sel_kec]
+        if sel_kel    != "Semua": df_export = df_export[df_export["Kelurahan"]         == sel_kel]
+        if sel_status != "Semua": df_export = df_export[df_export["Status"]            == sel_status]
+        if sel_akr    != "Semua": df_export = df_export[df_export["Akreditasi"]        == sel_akr]
+        if sel_bentuk != "Semua": df_export = df_export[df_export["Bentuk Pendidikan"] == sel_bentuk]
+        if search:
+            q2 = search.lower()
+            df_export = df_export[
+                df_export["Nama Sekolah"].str.lower().str.contains(q2) |
+                df_export["NPSN"].str.lower().str.contains(q2)
+            ]
+        fname = "PAUD_TangerangSelatan_Filter.xlsx"
+
+    excel_bytes = to_excel_bytes(df_export)
+    st.download_button(
+        label=f"⬇️ Download Excel ({len(df_export)} baris)",
+        data=excel_bytes,
+        file_name=fname,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
     st.divider()
     st.caption("Data: Kemendikdasmen · Tangerang Selatan")
 
@@ -206,7 +367,7 @@ df_display = df_display.drop(columns=["Profil URL"])
 df_display.index = range(1, len(df_display) + 1)
 
 st.write(
-    df_display.to_html(escape=False, index=True),
+    '<div class="table-wrapper">' + df_display.to_html(escape=False, index=True) + '</div>',
     unsafe_allow_html=True
 )
 
